@@ -7,6 +7,7 @@ import {
   DataAnalysis, Collection, Promotion,
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
+import { useSiteStore } from '@/stores/site'
 import { listKeys } from '@/api/apikey'
 import * as meApi from '@/api/me'
 import { formatCredit, formatDateTime, formatErrorCode } from '@/utils/format'
@@ -14,6 +15,8 @@ import { formatCredit, formatDateTime, formatErrorCode } from '@/utils/format'
 const store = useUserStore()
 const { user } = storeToRefs(store)
 const router = useRouter()
+const site = useSiteStore()
+const siteName = computed(() => site.get('site.name', 'GPT2API'))
 
 // ---------- 基本信息 ----------
 const balance = computed(() => formatCredit(user.value?.credit_balance))
@@ -184,7 +187,7 @@ function go(p: string) { router.push(p) }
           {{ greeting }},{{ user?.nickname || user?.email?.split('@')[0] || '同学' }}
         </div>
         <div class="hero-sub">
-          欢迎回到 <b>云芯 API</b> 控制台 ·
+          欢迎回到 <b>{{ siteName }}</b> 控制台 ·
           当前角色 <el-tag size="small" effect="plain">{{ store.role || '-' }}</el-tag>
           <span v-if="user?.last_login_at" class="muted">
             · 上次登录 {{ formatDateTime(user?.last_login_at) }}
