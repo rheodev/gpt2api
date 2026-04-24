@@ -42,7 +42,7 @@ RUN apk add --no-cache ca-certificates tzdata curl bash mariadb-client \
 WORKDIR /app
 
 COPY --from=backend /app/gpt2api            /app/gpt2api
-COPY --from=backend /root/go/bin/goose      /usr/local/bin/goose
+COPY --from=backend /go/bin/goose           /usr/local/bin/goose
 COPY --from=frontend /web/dist              /app/web/dist
 COPY sql                                    /app/sql
 COPY configs/config.example.yaml           /app/configs/config.yaml
