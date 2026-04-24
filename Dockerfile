@@ -15,7 +15,7 @@ COPY web/ .
 RUN npm run build
 
 # ---- Stage 2: Go 后端 + goose ----
-FROM golang:1.23-alpine AS backend
+FROM golang:1.26-alpine AS backend
 WORKDIR /app
 RUN apk add --no-cache git
 
