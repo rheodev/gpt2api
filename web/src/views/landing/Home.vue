@@ -18,7 +18,6 @@ const loggedIn = computed(() => user.isLoggedIn)
 
 const brand = brandParts()
 const repoHref = `https://${brand.repo}`
-const qqHref = `https://qm.qq.com/q/${brand.qq}`
 
 function goPlay() {
   if (loggedIn.value) router.push('/personal/play')
@@ -74,7 +73,6 @@ const features = [
           <a :href="repoHref" target="_blank" rel="noopener">
             GitHub <el-icon :size="13" class="ext"><TopRight /></el-icon>
           </a>
-          <a :href="qqHref" target="_blank" rel="noopener">QQ 群 {{ brand.qq }}</a>
         </nav>
         <div class="nav-actions">
           <el-button
@@ -121,15 +119,6 @@ const features = [
               <el-icon><Link /></el-icon> GitHub 仓库
             </el-button>
           </div>
-          <div class="hero-meta">
-            <a class="meta-link" :href="qqHref" target="_blank" rel="noopener">
-              <el-icon><Service /></el-icon> {{ brand.qqLabel }}{{ brand.qq }}
-            </a>
-            <span class="dot-sep">·</span>
-            <a class="meta-link" :href="brand.picUrl" target="_blank" rel="noopener">
-              <el-icon><PictureFilled /></el-icon> {{ brand.picLabel }}{{ brand.picText }}
-            </a>
-          </div>
         </div>
 
         <div class="hero-preview">
@@ -171,10 +160,6 @@ const features = [
         <span>© {{ new Date().getFullYear() }} {{ siteName }} · gpt-image-2 终稿直出网关</span>
         <span class="sep">·</span>
         <a :href="repoHref" target="_blank" rel="noopener">{{ brand.repoLabel }}{{ brand.repo }}</a>
-        <span class="sep">·</span>
-        <a :href="qqHref" target="_blank" rel="noopener">{{ brand.qqLabel }}{{ brand.qq }}</a>
-        <span class="sep">·</span>
-        <a :href="brand.picUrl" target="_blank" rel="noopener">{{ brand.picLabel }}{{ brand.picText }}</a>
       </div>
     </footer>
   </div>
