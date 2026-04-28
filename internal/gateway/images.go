@@ -65,7 +65,7 @@ type ImageGenRequest struct {
 	Size            string   `json:"size"`
 	Quality         string   `json:"quality,omitempty"`
 	Style           string   `json:"style,omitempty"`
-	ResponseFormat  string   `json:"response_format,omitempty"` // url | b64_json(暂仅支持 url)
+	ResponseFormat  string   `json:"response_format,omitempty"` // url | b64_json
 	User            string   `json:"user,omitempty"`
 	ReferenceImages []string `json:"reference_images,omitempty"` // 非标准扩展,见注释
 	// Upscale 非标准扩展:控制"本服务对原图做本地高清放大"的目标档位。
@@ -79,6 +79,7 @@ type ImageGenRequest struct {
 // ImageGenData 单张图响应。
 type ImageGenData struct {
 	URL           string `json:"url,omitempty"`
+	B64JSON       string `json:"b64_json,omitempty"`
 	RevisedPrompt string `json:"revised_prompt,omitempty"`
 	FileID        string `json:"file_id,omitempty"` // chatgpt.com 侧原始 id(用于对账)
 }
@@ -321,10 +322,23 @@ func (h *ImagesHandler) ImageGenerations(c *gin.Context) {
 		Data:    make([]ImageGenData, 0, len(res.SignedURLs)),
 	}
 	for i := range res.SignedURLs {
-		d := ImageGenData{URL: BuildImageProxyURL(taskID, i, ImageProxyTTL)}
+		d := ImageGenData{}
 		if i < len(res.FileIDs) {
 			d.FileID = strings.TrimPrefix(res.FileIDs[i], "sed:")
 		}
+
+		if req.ResponseFormat == "b64_json" {
+			data, err := h.fetchAndProcessUpstreamImage(c.Request.Context(), res.AccountID, res.SignedURLs[i], req.Upscale)
+			if err != nil {
+				logger.L().Warn("fetch b64 image failed", zap.Error(err), zap.String("task_id", taskID))
+				d.URL = BuildImageProxyURL(taskID, i, ImageProxyTTL)
+			} else {
+				d.B64JSON = base64.StdEncoding.EncodeToString(data)
+			}
+		} else {
+			d.URL = BuildImageProxyURL(taskID, i, ImageProxyTTL)
+		}
+
 		out.Data = append(out.Data, d)
 	}
 	c.JSON(http.StatusOK, out)
@@ -552,6 +566,44 @@ func extractLastUserPrompt(msgs []chatMsg) string {
 	return ""
 }
 
+// fetchAndProcessUpstreamImage 同步下载上游图片，并在需要时放大，用于直接返回 b64_json。
+func (h *ImagesHandler) fetchAndProcessUpstreamImage(ctx context.Context, accountID uint64, signedURL, upscale string) ([]byte, error) {
+	if accountID == 0 || h.ImageAccResolver == nil {
+		return nil, errors.New("ImageAccResolver is not configured")
+	}
+	at, deviceID, cookies, err := h.ImageAccResolver.AuthToken(ctx, accountID)
+	if err != nil {
+		return nil, err
+	}
+	proxyURL := h.ImageAccResolver.ProxyURL(ctx, accountID)
+
+	cli, err := chatgpt.New(chatgpt.Options{
+		AuthToken: at,
+		DeviceID:  deviceID,
+		ProxyURL:  proxyURL,
+		Cookies:   cookies,
+		Timeout:   h.upstreamTimeout(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	body, _, err := cli.FetchImage(ctx, signedURL, 16*1024*1024)
+	if err != nil {
+		return nil, err
+	}
+
+	scale := image.ValidateUpscale(upscale)
+	if scale != "" {
+		upBytes, _, err := image.DoUpscale(body, scale)
+		if err == nil && len(upBytes) > 0 {
+			body = upBytes
+		}
+	}
+
+	return body, nil
+}
+
 // --- helpers ---
 
 func ifEmpty(s, fallback string) string {
@@ -649,6 +701,7 @@ func (h *ImagesHandler) ImageEdits(c *gin.Context) {
 		size = "1024x1024"
 	}
 	upscale := image.ValidateUpscale(c.Request.FormValue("upscale"))
+	responseFormat := c.Request.FormValue("response_format")
 
 	// 主图 + 可能的多张
 	files, err := collectEditFiles(c.Request.MultipartForm)
@@ -840,10 +893,23 @@ func (h *ImagesHandler) ImageEdits(c *gin.Context) {
 		Data:    make([]ImageGenData, 0, len(res.SignedURLs)),
 	}
 	for i := range res.SignedURLs {
-		d := ImageGenData{URL: BuildImageProxyURL(taskID, i, ImageProxyTTL)}
+		d := ImageGenData{}
 		if i < len(res.FileIDs) {
 			d.FileID = strings.TrimPrefix(res.FileIDs[i], "sed:")
 		}
+
+		if responseFormat == "b64_json" {
+			data, err := h.fetchAndProcessUpstreamImage(c.Request.Context(), res.AccountID, res.SignedURLs[i], upscale)
+			if err != nil {
+				logger.L().Warn("fetch b64 image failed", zap.Error(err), zap.String("task_id", taskID))
+				d.URL = BuildImageProxyURL(taskID, i, ImageProxyTTL)
+			} else {
+				d.B64JSON = base64.StdEncoding.EncodeToString(data)
+			}
+		} else {
+			d.URL = BuildImageProxyURL(taskID, i, ImageProxyTTL)
+		}
+
 		out.Data = append(out.Data, d)
 	}
 	c.JSON(http.StatusOK, out)
