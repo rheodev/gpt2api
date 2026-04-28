@@ -432,7 +432,13 @@ func (r *Runner) runOnce(ctx context.Context, opt RunOptions, result *RunResult)
 		zap.Strings("sse_fids_list", sseResult.FileIDs),
 		zap.Int("sse_sids", len(sseResult.SedimentIDs)),
 		zap.Strings("sse_sids_list", sseResult.SedimentIDs),
+		zap.NamedError("sse_err", sseResult.Err),
 	)
+	// SSE 流异常中断(非正常 [DONE] 结束):上游连接被重置或账号权限不足,
+	// 此时 conv_id 可能已有但图像任务从未启动,进入 poll 只会白耗时间。
+	if sseResult.Err != nil && len(sseResult.FileIDs) == 0 && len(sseResult.SedimentIDs) == 0 {
+		return false, ErrUpstream, fmt.Errorf("SSE stream error: %w", sseResult.Err)
+	}
 
 	// 聚合 SSE 阶段的所有引用:file-service 优先,sediment 补位
 	var fileRefs []string

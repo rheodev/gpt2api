@@ -306,6 +306,7 @@ type ImageSSEResult struct {
 	SedimentIDs    []string // sediment:// 引用(通常是预览,需要轮询)
 	FinishType     string   // finish_details.type(interrupted/stop/...)
 	ImageGenTaskID string
+	Err            error    // SSE 流读取错误(非 nil 表示流异常中断)
 }
 
 var (
@@ -322,6 +323,7 @@ func ParseImageSSE(stream <-chan SSEEvent) ImageSSEResult {
 
 	for ev := range stream {
 		if ev.Err != nil {
+			r.Err = ev.Err
 			return r
 		}
 		data := ev.Data
