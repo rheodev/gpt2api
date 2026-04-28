@@ -494,7 +494,14 @@ func (r *Runner) runOnce(ctx context.Context, opt RunOptions, result *RunResult)
 		case chatgpt.PollStatusTimeout:
 			return false, ErrPollTimeout, errors.New("poll timeout without any image")
 		default:
-			return false, ErrUpstream, errors.New("poll error")
+			// PollStatusError 有两个来源:ctx 被取消 或 连续 429。
+			// ctx 取消说明上层(请求断开/超时)主动中止,不应误标账号限流。
+			if ctx.Err() != nil {
+				return false, ErrUnknown, fmt.Errorf("poll canceled: %w", ctx.Err())
+			}
+			// 连续 429:账号已被上游限流,标记让调度器后续跳过该账号,并触发换账号重试
+			r.sched.MarkRateLimited(context.Background(), lease.Account.ID)
+			return false, ErrRateLimited, errors.New("poll 429 rate limited")
 		}
 	}
 
