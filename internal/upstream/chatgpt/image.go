@@ -255,6 +255,7 @@ func (c *Client) StreamFConversation(ctx context.Context, opt ImageConvOpts) (<-
 		},
 		"paragen_cot_summary_display_override": "allow",
 		"force_parallel_switch":                "auto",
+		"moderation":                           "low",
 	}
 	// 新会话不带 conversation_id(对齐浏览器抓包);已有会话才带
 	if opt.ConvID != "" {
